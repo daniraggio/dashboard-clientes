@@ -222,6 +222,7 @@ tbody tr:hover    { background: var(--bg2); }
 tbody tr.hi { background: #fff3f2; border-left: 3px solid var(--accent); }
 tbody td { padding: 10px 12px; text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink2); white-space: nowrap; }
 tbody td:first-child { text-align: left; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 13px; color: var(--ink); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+tbody td:first-child:hover { color: var(--accent); text-decoration: underline; }
 tbody td:nth-child(2) { text-align: left; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink3); }
 td.ann { font-weight: 500; color: var(--ink) !important; }
 td.mhi { background: rgba(196,56,42,0.07) !important; color: var(--accent) !important; font-weight: 500; }
@@ -683,8 +684,7 @@ function toggleCols(){
   const btn=document.getElementById('btnCols');
   btn.textContent=showM?'Ocultar meses':'Mostrar meses';
   btn.classList.toggle('on',!showM);
-  document.querySelectorAll('.col-m').forEach(el=>{ el.style.display=showM?'':'none'; });
-  document.getElementById('tbl').classList.toggle('compact',!showM);
+  applyColVisibility();
 }
 
 // ── REFRESH ───────────────────────────────────────────────────────────────────
@@ -710,33 +710,53 @@ function updStats(data){
 }
 
 // ── TABLE ─────────────────────────────────────────────────────────────────────
+function applyColVisibility(){
+  // Apply current showM state to all col-m elements in the table
+  document.querySelectorAll('#tbl .col-m').forEach(el=>{
+    el.style.display = showM ? '' : 'none';
+  });
+  document.getElementById('tbl').classList.toggle('compact', !showM);
+}
+
 function updTable(data){
   const rows=sorted(data);
   const tb=document.getElementById('tBody');
   if(!rows.length){
     tb.innerHTML=`<tr><td colspan="16" class="empty">Sin resultados</td></tr>`;
-    set('tblMeta','0 clientes'); return;
+    set('tblMeta','0 clientes');
+    applyColVisibility();
+    return;
   }
   set('tblMeta',rows.length+' clientes');
-  // Always render all month cells; visibility controlled by CSS class on table
+  // Always render all month cells; visibility re-applied after via applyColVisibility()
   tb.innerHTML=rows.map(d=>{
     const n=name(d.id);
     const mCells=d.monthly.map((v,i)=>
       `<td class="col-m${i===aMonth?' mhi':''}">${v!=null?fmt(v):'—'}</td>`
     ).join('');
     return`<tr onclick="rowClick(this,'${d.id}')">
-      <td title="${n}">${n}</td>
+      <td title="${n}" style="cursor:pointer" onclick="filterByClient(event,'${d.id}')">${n}</td>
       <td>${d.id}</td>
       <td><span class="type-badge badge-${d.type}">${d.type}</span></td>
       ${mCells}
       <td class="ann">${fmt(d.annual)}</td>
     </tr>`;
   }).join('');
+  // Re-apply column visibility after HTML rebuild
+  applyColVisibility();
 }
 
-function rowClick(tr,id){
+function rowClick(tr){
   document.querySelectorAll('#tBody tr').forEach(r=>r.classList.remove('hi'));
   tr.classList.add('hi');
+}
+
+function filterByClient(e, id){
+  e.stopPropagation(); // don't trigger rowClick's parent tr handler conflict
+  const n = name(id);
+  aTerm = n;
+  document.getElementById('searchInput').value = n;
+  refresh();
 }
 
 // ── CLIENT CHART (total de todos los filtrados) ───────────────────────────────
