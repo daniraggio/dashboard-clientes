@@ -237,6 +237,21 @@ table.compact th:nth-child(3) { width: 70px; }
 table.compact td:last-child,
 table.compact th:last-child { width: 130px; }
 
+/* Column resize */
+thead tr.sort-row th {
+  position: relative;
+}
+.col-resizer {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 5px; cursor: col-resize;
+  user-select: none;
+  z-index: 3;
+}
+.col-resizer:hover, .col-resizer.dragging {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
 .empty { text-align: center; padding: 48px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--ink3); }
 </style>
 </head>
@@ -353,22 +368,22 @@ table.compact th:last-child { width: 130px; }
       <thead>
         <!-- Sort row -->
         <tr class="sort-row" id="sortRow">
-          <th data-k="name"   onclick="sortBy('name')">Nombre</th>
-          <th data-k="id"     onclick="sortBy('id')">NEMO</th>
-          <th data-k="type"   onclick="sortBy('type')">Tipo</th>
-          <th data-k="m0"  class="col-m" onclick="sortByM(0)">Ene (MWh)</th>
-          <th data-k="m1"  class="col-m" onclick="sortByM(1)">Feb (MWh)</th>
-          <th data-k="m2"  class="col-m" onclick="sortByM(2)">Mar (MWh)</th>
-          <th data-k="m3"  class="col-m" onclick="sortByM(3)">Abr (MWh)</th>
-          <th data-k="m4"  class="col-m" onclick="sortByM(4)">May (MWh)</th>
-          <th data-k="m5"  class="col-m" onclick="sortByM(5)">Jun (MWh)</th>
-          <th data-k="m6"  class="col-m" onclick="sortByM(6)">Jul (MWh)</th>
-          <th data-k="m7"  class="col-m" onclick="sortByM(7)">Ago (MWh)</th>
-          <th data-k="m8"  class="col-m" onclick="sortByM(8)">Sep (MWh)</th>
-          <th data-k="m9"  class="col-m" onclick="sortByM(9)">Oct (MWh)</th>
-          <th data-k="m10" class="col-m" onclick="sortByM(10)">Nov (MWh)</th>
-          <th data-k="m11" class="col-m" onclick="sortByM(11)">Dic (MWh)</th>
-          <th data-k="annual" onclick="sortBy('annual')">Anual (MWh)</th>
+          <th data-k="name"   onclick="sortBy('name')">Nombre<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="id"     onclick="sortBy('id')">NEMO<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="type"   onclick="sortBy('type')">Tipo<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m0"  class="col-m" onclick="sortByM(0)">Ene (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m1"  class="col-m" onclick="sortByM(1)">Feb (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m2"  class="col-m" onclick="sortByM(2)">Mar (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m3"  class="col-m" onclick="sortByM(3)">Abr (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m4"  class="col-m" onclick="sortByM(4)">May (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m5"  class="col-m" onclick="sortByM(5)">Jun (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m6"  class="col-m" onclick="sortByM(6)">Jul (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m7"  class="col-m" onclick="sortByM(7)">Ago (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m8"  class="col-m" onclick="sortByM(8)">Sep (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m9"  class="col-m" onclick="sortByM(9)">Oct (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m10" class="col-m" onclick="sortByM(10)">Nov (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="m11" class="col-m" onclick="sortByM(11)">Dic (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
+          <th data-k="annual" onclick="sortBy('annual')">Anual (MWh)<span class="col-resizer" onclick="e=>e.stopPropagation()"></span></th>
         </tr>
         <!-- Column filter row -->
         <tr class="flt-row">
@@ -703,11 +718,12 @@ function updTable(data){
     set('tblMeta','0 clientes'); return;
   }
   set('tblMeta',rows.length+' clientes');
+  // Always render all month cells; visibility controlled by CSS class on table
   tb.innerHTML=rows.map(d=>{
     const n=name(d.id);
-    const mCells=showM?d.monthly.map((v,i)=>
+    const mCells=d.monthly.map((v,i)=>
       `<td class="col-m${i===aMonth?' mhi':''}">${v!=null?fmt(v):'—'}</td>`
-    ).join(''):'';
+    ).join('');
     return`<tr onclick="rowClick(this,'${d.id}')">
       <td title="${n}">${n}</td>
       <td>${d.id}</td>
@@ -844,8 +860,43 @@ document.getElementById('searchInput').addEventListener('input',e=>{ aTerm=e.tar
 document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
 document.getElementById('repoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') loadData(); });
 
+// ── COLUMN RESIZE ─────────────────────────────────────────────────────────────
+function initColResize(){
+  const tbl=document.getElementById('tbl');
+  tbl.style.tableLayout='fixed';
+  // Set initial widths from current rendered widths
+  const ths=[...tbl.querySelectorAll('tr.sort-row th')];
+  ths.forEach(th=>{ th.style.width=th.offsetWidth+'px'; th.style.minWidth='40px'; });
+
+  tbl.querySelectorAll('.col-resizer').forEach(resizer=>{
+    const th=resizer.parentElement;
+    let startX,startW;
+    resizer.addEventListener('mousedown',e=>{
+      e.preventDefault(); e.stopPropagation();
+      startX=e.clientX; startW=th.offsetWidth;
+      resizer.classList.add('dragging');
+      document.body.style.cursor='col-resize';
+      document.body.style.userSelect='none';
+      const onMove=e=>{
+        const w=Math.max(40,startW+(e.clientX-startX));
+        th.style.width=w+'px';
+      };
+      const onUp=()=>{
+        resizer.classList.remove('dragging');
+        document.body.style.cursor='';
+        document.body.style.userSelect='';
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  });
+}
+
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 initCharts();
+initColResize();
 updSortH();   // mark default sort column on load
 const urlRepo=new URLSearchParams(location.search).get('repo');
 if(urlRepo) document.getElementById('repoInput').value=urlRepo;
