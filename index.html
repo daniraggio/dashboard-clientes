@@ -427,7 +427,7 @@ let aType    = 'all';
 let aTerm    = '';
 let aMonth   = null;    // 0-11 | null
 let sKey     = 'annual';
-let sDir     = -1;
+let sDir     = -1;  // -1 = desc (mayor a menor por defecto)
 let showM    = true;    // show month columns
 let CF       = {};      // column filters
 
@@ -846,6 +846,7 @@ document.getElementById('repoInput').addEventListener('keydown',e=>{ if(e.key===
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 initCharts();
+updSortH();   // mark default sort column on load
 const urlRepo=new URLSearchParams(location.search).get('repo');
 if(urlRepo) document.getElementById('repoInput').value=urlRepo;
 loadData();   // auto-load with preset repo
