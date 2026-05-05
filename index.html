@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Consumo</title>
+<title>Dashboard de Consumo v4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
@@ -173,7 +173,7 @@ table.compact td.ann     { width: 120px; }
 <!-- HEADER -->
 <header>
   <div>
-    <div class="eyebrow">Sistema de Análisis Energético</div>
+    <div class="eyebrow">Sistema de Análisis Energético <span id="versionBadge" style="margin-left:8px;opacity:0.5">v4</span></div>
     <h1>Consumo de<br><span>Clientes</span></h1>
   </div>
   <div class="header-right">
@@ -790,6 +790,12 @@ function initColResize(){
 document.getElementById('searchInput').addEventListener('input',e=>{ aTerm=e.target.value; refresh(); });
 document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
 document.getElementById('repoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') loadData(); });
+
+// ── VERSION ───────────────────────────────────────────────────────────────────
+// Auto-increment: when saving a new version, bump this number.
+const DASHBOARD_VERSION = 4;
+document.title = `Dashboard de Consumo v${DASHBOARD_VERSION}`;
+document.getElementById('versionBadge').textContent = `v${DASHBOARD_VERSION}`;
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 initCharts();
