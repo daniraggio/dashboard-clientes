@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Consumo v4</title>
+<title>Dashboard de Consumo v5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
@@ -165,6 +165,17 @@ table.compact td.ann     { width: 120px; }
 .col-resizer:hover, .col-resizer.dragging { background: var(--accent); opacity: 0.5; }
 
 .empty { text-align: center; padding: 48px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--ink3); }
+/* Table-section filter bar */
+.tbl-filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 0 14px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+.tbl-filter-bar .filter-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink3); }
+.tbl-filter-bar .filter-btn { padding:5px 12px; font-size:11px; }
+.tbl-filter-bar .dist-select { font-size:11px; padding:5px 8px; }
+.tbl-search { position:relative; }
+.tbl-search input { width:200px; background:var(--surface); border:1.5px solid var(--border); border-radius:6px; padding:6px 10px 6px 30px; font-family:'DM Mono',monospace; font-size:12px; color:var(--ink); outline:none; transition:border-color 0.2s; }
+.tbl-search input:focus { border-color:var(--ink); }
+.tbl-search input::placeholder { color:var(--ink3); }
+.tbl-search-icon { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--ink3); font-size:13px; pointer-events:none; }
+
 </style>
 </head>
 <body>
@@ -281,6 +292,24 @@ table.compact td.ann     { width: 120px; }
       <button class="btn export" onclick="exportExcel()">↓ Exportar Excel</button>
     </div>
   </div>
+  <!-- Table filter bar (mirrors top bar, scoped to table card) -->
+  <div class="tbl-filter-bar" id="tblFilterBar">
+    <span class="filter-label">Tipo</span>
+    <button class="filter-btn active" data-ttype="all"   onclick="setTypeTbl('all')">Todos</button>
+    <button class="filter-btn" data-ttype="GUMA" onclick="setTypeTbl('GUMA')">GUMA</button>
+    <button class="filter-btn" data-ttype="GUME" onclick="setTypeTbl('GUME')">GUME</button>
+    <button class="filter-btn" data-ttype="GUDI" onclick="setTypeTbl('GUDI')">GUDI</button>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Distribuidor</span>
+    <select class="dist-select" id="distSelectTbl" onchange="setDistFilterTbl(this.value)">
+      <option value="">Todos</option>
+    </select>
+    <div class="filter-sep"></div>
+    <div class="tbl-search">
+      <span class="tbl-search-icon">⌕</span>
+      <input type="text" id="tblSearch" placeholder="Buscar…" autocomplete="off" oninput="setTermTbl(this.value)">
+    </div>
+  </div>
   <div class="table-wrap">
     <table id="tbl">
       <thead>
@@ -320,7 +349,12 @@ table.compact td.ann     { width: 120px; }
           <th class="col-m"><input id="fm9"  type="number" placeholder="≥" oninput="colFilter()"></th>
           <th class="col-m"><input id="fm10" type="number" placeholder="≥" oninput="colFilter()"></th>
           <th class="col-m"><input id="fm11" type="number" placeholder="≥" oninput="colFilter()"></th>
-          <th><input id="fAnn" type="number" placeholder="≥" oninput="colFilter()"></th>
+          <th style="min-width:120px">
+            <div style="display:flex;gap:3px">
+              <input id="fAnnMin" type="number" placeholder="min" oninput="colFilter()" style="width:50%">
+              <input id="fAnnMax" type="number" placeholder="max" oninput="colFilter()" style="width:50%">
+            </div>
+          </th>
         </tr>
       </thead>
       <tbody id="tBody">
@@ -510,17 +544,15 @@ function parseFile(buf, type){
 
 // ── DISTRIBUTOR FILTER ────────────────────────────────────────────────────────
 function populateDistFilter(){
-  const sel=document.getElementById('distSelect');
   const dists=[...new Set(ALL.map(d=>d.dist).filter(Boolean))].sort();
-  sel.innerHTML='<option value="">Todos</option>';
-  dists.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o); });
+  ['distSelect','distSelectTbl'].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='<option value="">Todos</option>';
+    dists.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o); });
+  });
 }
 
-function setDistFilter(val){
-  aDist=val;
-  document.getElementById('distSelect').classList.toggle('active',!!val);
-  refresh();
-}
+function setDistFilter(val){ aDist=val; syncFilterUI(); refresh(); }
 
 // ── FILTERING ─────────────────────────────────────────────────────────────────
 function filtered(){
@@ -533,17 +565,14 @@ function filtered(){
     if(CF.nemo && !d.id.toLowerCase().includes(CF.nemo)) return false;
     if(CF.type && !d.type.toLowerCase().includes(CF.type)) return false;
     if(CF.dist && !d.dist.toLowerCase().includes(CF.dist)) return false;
-    if(CF.ann!=null && (d.annual||0)<CF.ann) return false;
+    if(CF.annMin!=null && (d.annual||0)<CF.annMin) return false;
+    if(CF.annMax!=null && (d.annual||0)>CF.annMax) return false;
     for(let i=0;i<12;i++) if(CF['m'+i]!=null && (d.monthly[i]||0)<CF['m'+i]) return false;
     return true;
   });
 }
 
-function setType(t){
-  aType=t;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===t));
-  refresh();
-}
+function setType(t){ aType=t; syncFilterUI(); refresh(); }
 
 function toggleMonth(mi){
   aMonth=(aMonth===mi)?null:mi;
@@ -583,7 +612,8 @@ function colFilter(){
   const fno=gf('fNemo'); if(fno) CF.nemo=fno;
   const ft=gf('fType'); if(ft) CF.type=ft;
   const fd=gf('fDist'); if(fd) CF.dist=fd;
-  const fa=gn('fAnn'); if(fa!=null) CF.ann=fa;
+  const faMin=gn('fAnnMin'); if(faMin!=null) CF.annMin=faMin;
+  const faMax=gn('fAnnMax'); if(faMax!=null) CF.annMax=faMax;
   for(let i=0;i<12;i++){const v=gn('fm'+i); if(v!=null) CF['m'+i]=v;}
   refresh();
 }
@@ -753,7 +783,7 @@ function updSortH(){
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-function fmt(n){ if(n==null||isNaN(n)) return'—'; return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function fmt(n){ if(n==null||isNaN(n)) return'—'; return Math.round(n).toLocaleString('es-AR'); }
 function fmtS(n){
   if(n==null||isNaN(n)) return'—';
   if(n>=1e6)  return(n/1e6).toFixed(2)+' TWh';
@@ -786,14 +816,46 @@ function initColResize(){
   });
 }
 
+
+// ── TABLE FILTER BAR (synced with top bar) ────────────────────────────────
+// These functions update the SAME state variables and call refresh(),
+// then sync all UI controls so top and table bars stay in step.
+
+function syncFilterUI(){
+  // Top type buttons
+  document.querySelectorAll('.filter-btn[data-type]').forEach(b=>
+    b.classList.toggle('active', b.dataset.type===aType));
+  // Table type buttons
+  document.querySelectorAll('.filter-btn[data-ttype]').forEach(b=>
+    b.classList.toggle('active', b.dataset.ttype===aType));
+  // Dist selects
+  document.getElementById('distSelect').value    = aDist;
+  document.getElementById('distSelectTbl').value = aDist;
+  document.getElementById('distSelect').classList.toggle('active', !!aDist);
+  document.getElementById('distSelectTbl').classList.toggle('active', !!aDist);
+  // Search inputs
+  document.getElementById('searchInput').value = aTerm;
+  document.getElementById('tblSearch').value   = aTerm;
+}
+
+function setTypeTbl(t){
+  aType=t; syncFilterUI(); refresh();
+}
+function setDistFilterTbl(val){
+  aDist=val; syncFilterUI(); refresh();
+}
+function setTermTbl(val){
+  aTerm=val; syncFilterUI(); refresh();
+}
+
 // ── EVENTS ────────────────────────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input',e=>{ aTerm=e.target.value; refresh(); });
-document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
+document.getElementById('searchInput').addEventListener('input',e=>{ aTerm=e.target.value; syncFilterUI(); refresh(); });
+document.querySelectorAll('.filter-btn[data-type]').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
 document.getElementById('repoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') loadData(); });
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
 // Auto-increment: when saving a new version, bump this number.
-const DASHBOARD_VERSION = 4;
+const DASHBOARD_VERSION = 5;
 document.title = `Dashboard de Consumo v${DASHBOARD_VERSION}`;
 document.getElementById('versionBadge').textContent = `v${DASHBOARD_VERSION}`;
 
